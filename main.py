@@ -29,7 +29,7 @@ def scan_ip(ip, verbose, save, csv_filename=None, db_conn=None): #scaner
             players_online = status.players_online
             players_max = status.players_max
             version = status.version.version
-            latency = ping(ip)
+            latency = "N/A"
         except Exception:
             if verbose >= 2:
                 print(f"No server at {ip}:25565 or {ip}:19132")

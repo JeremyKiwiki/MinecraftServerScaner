@@ -1,0 +1,4 @@
+mcstatus==5.0.0a4
+gevent
+psycopg2-binary
+mysql-connector-python

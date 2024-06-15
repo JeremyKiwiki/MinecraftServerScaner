@@ -72,7 +72,7 @@ def main():
     parser = argparse.ArgumentParser(description="Scan Minecraft servers.")
     parser.add_argument('--verbose', type=int, default=1, help="Verbosity level (0, 1, 2)")
     parser.add_argument('--save', type=str, default=None, help="Save found servers to a CSV file or a database (sqlite, postgres, mysql)")
-    parser.add_argument('--ip', type=str, required=True, help="IP ranges to scan (e.g., '82.0.0.0-82.255.255.255,83.0.0.0-83.0.0.255')")
+    parser.add_argument('--ip', type=str, required=True, help="IP ranges to scan (e.g., '192.168.0.0-192.168.255.255,192.168.0.0-192.168.0.255')")
     parser.add_argument('--db-host', type=str, help="Database host (for postgres, mysql)")
     parser.add_argument('--db-port', type=str, help="Database port (for postgres, mysql)")
     parser.add_argument('--db-user', type=str, help="Database user (for postgres, mysql)")

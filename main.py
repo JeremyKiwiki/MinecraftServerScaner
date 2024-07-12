@@ -1,17 +1,30 @@
 import gevent.monkey
-gevent.monkey.patch_all() #to add async
-from mcstatus import JavaServer, BedrockServer #to test for both Java and Bedrock servers
+gevent.monkey.patch_all()  # to add async
+from mcstatus import JavaServer, BedrockServer  # to test for both Java and Bedrock servers
 import gevent.pool
 import multiprocessing
 import argparse
 import csv
 import os
 import sqlite3
+import requests
 
-def scan_ip(ip, java_ports, bedrock_ports, verbose, save, csv_filename=None, db_conn=None): #scaner
+def geolocate_ip(ip):
+    try:
+        response = requests.get(f"http://ip-api.com/json/{ip}")
+        data = response.json()
+        if data['status'] == 'success':
+            return data['country'], data['regionName'], data['city'], data['lat'], data['lon']
+        else:
+            return None, None, None, None, None
+    except Exception as e:
+        return None, None, None, None, None
+
+def scan_ip(ip, java_ports, bedrock_ports, verbose, save, csv_filename=None, db_conn=None):  # scanner
+    
     for port in java_ports:
         try:
-            #test for java server
+            # test for java server
             server = JavaServer.lookup(f"{ip}:{port}")
             status = server.status()
             server_type = "Java"
@@ -21,21 +34,26 @@ def scan_ip(ip, java_ports, bedrock_ports, verbose, save, csv_filename=None, db_
             version = status.version.name
             latency = status.latency
             prt = ""
+            country, region, city, lat, lon = geolocate_ip(ip)
+            location_info = f"{city}, {region}, {country} (Lat: {lat}, Lon: {lon})" if country else "Unknown location"
             if verbose >= 1:
                 prt += "------------------------------------------------------- \n"
-                prt +=f"Server found at {ip}:{port} \n"
-                prt +=f"Type: {server_type} \n"
-                prt +=f"Description: {description} \n"
-                prt +=f"Players: {players_online}/{players_max} \n"
-                prt +=f"Version: {version} \n"
-                prt +=f"Latency: {latency} ms"
+                prt += f"Server found at {ip}:{port} \n"
+                prt += f"Location: {location_info} \n"
+                prt += f"Lat: {lat} \n"
+                prt += f"Lon: {lon} \n"
+                prt += f"Type: {server_type} \n"
+                prt += f"Description: {description} \n"
+                prt += f"Players: {players_online}/{players_max} \n"
+                prt += f"Version: {version} \n"
+                prt += f"Latency: {latency} ms"
                 print(prt)
 
-            if save == 'csv' and csv_filename: #if save -> to csv or db
+            if save == 'csv' and csv_filename:  # if save -> to csv or db
                 with open(csv_filename, mode='a', newline='') as csv_file:
                     csv_writer = csv.writer(csv_file)
                     csv_writer.writerow([
-                        ip, port, server_type,
+                        ip, port, server_type, location_info, lat, lon,
                         description,
                         players_online,
                         players_max,
@@ -45,8 +63,8 @@ def scan_ip(ip, java_ports, bedrock_ports, verbose, save, csv_filename=None, db_
             elif save == 'sqlite' and db_conn:
                 cursor = db_conn.cursor()
                 cursor.execute(
-                    "INSERT INTO servers (ip, port, type, description, players_online, max_players, version, latency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (ip, port, server_type,
+                    "INSERT INTO servers (ip, port, type, location, lat, lon, description, players_online, max_players, version, latency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (ip, port, server_type, location_info, lat, lon,
                      description,
                      players_online,
                      players_max,
@@ -54,14 +72,14 @@ def scan_ip(ip, java_ports, bedrock_ports, verbose, save, csv_filename=None, db_
                      latency)
                 )
                 db_conn.commit()
-            return #Java server found, no need to check other ports
+            return  # Java server found, no need to check other ports
         except Exception:
             if verbose >= 2:
                 print(f"No Java server at {ip}:{port}")
 
     for port in bedrock_ports:
         try:
-            #test for bedrock server
+            # test for bedrock server
             server = BedrockServer.lookup(f"{ip}:{port}")
             status = server.status()
             server_type = "Bedrock"
@@ -71,21 +89,26 @@ def scan_ip(ip, java_ports, bedrock_ports, verbose, save, csv_filename=None, db_
             version = status.version.version
             latency = "N/A"
             prt = ""
+            country, region, city, lat, lon = geolocate_ip(ip)
+            location_info = f"{city}, {region}, {country} (Lat: {lat}, Lon: {lon})" if country else "Unknown location"
             if verbose >= 1:
                 prt += "------------------------------------------------------- \n"
-                prt +=f"Server found at {ip}:{port} \n"
-                prt +=f"Type: {server_type} \n"
-                prt +=f"Description: {description} \n"
-                prt +=f"Players: {players_online}/{players_max} \n"
-                prt +=f"Version: {version} \n"
-                prt +=f"Latency: {latency} ms"
+                prt += f"Server found at {ip}:{port} \n"
+                prt += f"Location: {location_info} \n"
+                prt += f"Lat: {lat} \n"
+                prt += f"Lon: {lon} \n"
+                prt += f"Type: {server_type} \n"
+                prt += f"Description: {description} \n"
+                prt += f"Players: {players_online}/{players_max} \n"
+                prt += f"Version: {version} \n"
+                prt += f"Latency: {latency} ms"
                 print(prt)
 
-            if save == 'csv' and csv_filename: #if save -> to csv or db
+            if save == 'csv' and csv_filename:  # if save -> to csv or db
                 with open(csv_filename, mode='a', newline='') as csv_file:
                     csv_writer = csv.writer(csv_file)
                     csv_writer.writerow([
-                        ip, port, server_type,
+                        ip, port, server_type, location_info, lat, lon,
                         description,
                         players_online,
                         players_max,
@@ -95,8 +118,8 @@ def scan_ip(ip, java_ports, bedrock_ports, verbose, save, csv_filename=None, db_
             elif save == 'sqlite' and db_conn:
                 cursor = db_conn.cursor()
                 cursor.execute(
-                    "INSERT INTO servers (ip, port, type, description, players_online, max_players, version, latency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (ip, port, server_type,
+                    "INSERT INTO servers (ip, port, type, location, lat, lon, description, players_online, max_players, version, latency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (ip, port, server_type, location_info, lat, lon,
                      description,
                      players_online,
                      players_max,
@@ -104,12 +127,12 @@ def scan_ip(ip, java_ports, bedrock_ports, verbose, save, csv_filename=None, db_
                      latency)
                 )
                 db_conn.commit()
-            return #Bedrock server found, no need to check other ports
+            return  # Bedrock server found, no need to check other ports
         except Exception:
             if verbose >= 2:
                 print(f"No Bedrock server at {ip}:{port}")
 
-def generate_ips(ip_ranges): #generate IP range according to --ip
+def generate_ips(ip_ranges):  # generate IP range according to --ip
     for ip_range in ip_ranges:
         start_parts = list(map(int, ip_range[0].split('.')))
         end_parts = list(map(int, ip_range[1].split('.')))
@@ -119,7 +142,7 @@ def generate_ips(ip_ranges): #generate IP range according to --ip
                     for l in range(start_parts[3], end_parts[3] + 1):
                         yield f"{i}.{j}.{k}.{l}"
 
-def parse_ip_ranges(ip_ranges): #parse if single param or multiple param
+def parse_ip_ranges(ip_ranges):  # parse if single param or multiple param
     ranges = []
     for ip_range in ip_ranges.split(','):
         if '-' in ip_range:
@@ -129,7 +152,7 @@ def parse_ip_ranges(ip_ranges): #parse if single param or multiple param
             ranges.append((ip_range.strip(), ip_range.strip()))
     return ranges
 
-def parse_ports(port_ranges): #parse port ranges
+def parse_ports(port_ranges):  # parse port ranges
     ports = set()
     for port_range in port_ranges.split(','):
         if '-' in port_range:
@@ -139,19 +162,19 @@ def parse_ports(port_ranges): #parse port ranges
             ports.add(int(port_range.strip()))
     return sorted(ports)
 
-def worker(ips, java_ports, bedrock_ports, verbose, save, csv_filename=None, db_file=None, delay=0): #multi thread worker
+def worker(ips, java_ports, bedrock_ports, verbose, save, csv_filename=None, db_file=None, delay=0):  # multi thread worker
     pool = gevent.pool.Pool(size=1000)
     db_conn = sqlite3.connect(db_file) if db_file else None
     for ip in ips:
         pool.spawn(scan_ip, ip, java_ports, bedrock_ports, verbose, save, csv_filename, db_conn)
         if delay > 0:
-            gevent.sleep(delay / 1000) #add delay to avoid ban or yolo mode if 0
+            gevent.sleep(delay / 1000)  # add delay to avoid ban or yolo mode if 0
     pool.join()
     if db_conn:
         db_conn.close()
 
 def main():
-    #--------------------------------------- Declare Params ----------------------------------------------------------------
+    # --------------------------------------- Declare Params ----------------------------------------------------------------
     parser = argparse.ArgumentParser(description="Scan Minecraft servers.")
     parser.add_argument('--verbose', type=int, default=1, help="Verbosity level (0, 1, 2)")
     parser.add_argument('--save', type=str, default=None, help="Save found servers to a CSV file or a database (sqlite, postgres, mysql)")
@@ -167,18 +190,18 @@ def main():
     parser.add_argument('--csv-file', type=str, help="CSV file name (for csv)")
     parser.add_argument('--delay', type=int, default=0, help="Delay between requests in milliseconds (0 for no delay)")
     args = parser.parse_args()
-    
-    #-------------------------------------------------------------------------------------------------------------------------
 
-    csv_filename = args.csv_file if args.csv_file else 'found_servers.csv' #default name if !--csv file
-    db_filename = args.db_file if args.db_file else 'servers.db' #same default name for db
+    # -------------------------------------------------------------------------------------------------------------------------
 
-    if args.save == 'csv': #init csv
+    csv_filename = args.csv_file if args.csv_file else 'found_servers.csv'  # default name if !--csv file
+    db_filename = args.db_file if args.db_file else 'servers.db'  # same default name for db
+
+    if args.save == 'csv':  # init csv
         if not os.path.exists(csv_filename):
             with open(csv_filename, mode='w', newline='') as csv_file:
                 csv_writer = csv.writer(csv_file)
-                csv_writer.writerow(["IP", "Port", "Type", "Description", "Players Online", "Max Players", "Version", "Latency"])
-    elif args.save == 'sqlite': #init db
+                csv_writer.writerow(["IP", "Port", "Type", "Location", "Lat", "Lon", "Description", "Players Online", "Max Players", "Version", "Latency"])
+    elif args.save == 'sqlite':  # init db
         db_conn = sqlite3.connect(db_filename)
         db_conn.execute(
             "CREATE TABLE IF NOT EXISTS servers ("
@@ -186,6 +209,9 @@ def main():
             "ip TEXT,"
             "port INTEGER,"
             "type TEXT,"
+            "location TEXT,"
+            "lat REAL,"
+            "lon REAL,"
             "description TEXT,"
             "players_online INTEGER,"
             "max_players INTEGER,"
@@ -198,7 +224,7 @@ def main():
     java_ports = parse_ports(args.java_ports)
     bedrock_ports = parse_ports(args.bedrock_ports)
     ip_list = list(generate_ips(ip_ranges))
-    chunk_size = len(ip_list) // multiprocessing.cpu_count() #share work between cpu
+    chunk_size = len(ip_list) // multiprocessing.cpu_count()  # share work between cpu
 
     processes = []
     for i in range(multiprocessing.cpu_count()):
@@ -208,8 +234,8 @@ def main():
         processes.append(p)
         p.start()
 
-    for p in processes: #wait for all processes to end
+    for p in processes:  # wait for all processes to end
         p.join()
 
-if __name__ == "__main__": #avoid running if imported
+if __name__ == "__main__":  # avoid running if imported
     main()
